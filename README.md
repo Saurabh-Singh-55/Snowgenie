@@ -72,7 +72,7 @@ curl -sS https://ollama.ai/install.sh | bash
 ollama serve
 ```
 
-2. Pull the required model (we use qwen3:32b by default, but you can configure other models in your `.env`):
+2. Pull the required model (we use qwen3:32b by default, but you can configure other models in the `constants.py` file):
 ```bash
 ollama pull qwen3:32b
 ```
@@ -116,16 +116,21 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Set up environment variables
+### 4. Configure Snowflake credentials
 
-Copy `.env.example` to `.env` and fill in your Snowflake credentials and any overrides for ports, model names, etc.
+Edit the `constants.py` file to update your Snowflake credentials and other settings:
 
-```env
-SNOWFLAKE_USER=your_user
-SNOWFLAKE_PASSWORD=your_password
-SNOWFLAKE_ACCOUNT=your_account
-# ... (see constants.py for all options)
+```python
+# Edit these values in constants.py
+SNOWFLAKE_USER = "your_username"
+SNOWFLAKE_PASSWORD = "your_password"
+SNOWFLAKE_ACCOUNT = "your_account"
+SNOWFLAKE_ROLE = "ACCOUNTADMIN"  # or your preferred role
+SNOWFLAKE_DATABASE = "RETAIL_POC"  # your database name
+SNOWFLAKE_SCHEMA = "SALES"  # your schema name
 ```
+
+You can also configure other settings like LLM server host/port, default model, etc. in the same file.
 
 ### 5. Start the servers (in separate terminals)
 
@@ -173,9 +178,9 @@ streamlit run App.py
 - **Ollama not running?**  
   Start it with `ollama serve` and pull your desired model (e.g., `ollama pull qwen3:32b`).
 - **Snowflake connection issues?**  
-  Double-check your `.env` settings.
+  Double-check your credentials in `constants.py`.
 - **Port conflicts?**  
-  Change the relevant port in your `.env` or `constants.py`.
+  Change the relevant port settings in `constants.py`.
 
 ---
 
