@@ -1,16 +1,17 @@
 # SnowGenie: Natural Language to SQL for Snowflake
 
-🚀 **SnowGenie** is a local-first app that lets anyone—technical or not—query a Snowflake database using plain English. No SQL skills or schema knowledge required. Everything runs on your machine: LLM, tool server, and database connection. No cloud dependencies.
+�� **SnowGenie** is a modern AI-powered app that lets anyone—technical or not—query a Snowflake database using plain English. Powered by Google's Gemini AI, it requires no SQL skills or schema knowledge. Direct cloud AI integration with local database connection ensures both power and security.
 
 ---
 
 ## ✨ Features
 
-- **Ask questions in natural language** about your Snowflake data.
-- **Automatic schema analysis**—no need to know table or column names.
-- **LLM-powered SQL generation** and execution.
-- **Clear, formatted answers**—no manual querying.
-- **Runs 100% locally**: Ollama for LLM, FastMCP for tool orchestration, direct Snowflake DB connection, and a Streamlit UI.
+- **Ask questions in natural language** about your Snowflake data
+- **Automatic schema analysis**—no need to know table or column names
+- **Gemini AI-powered SQL generation** and execution
+- **Clear, formatted answers** with reasoning process displayed
+- **Google Gemini integration**: Latest AI models (Gemini 2.0 Flash, 1.5 Pro, etc.)
+- **Secure**: Credentials stay local, only queries sent to Gemini API
 
 ---
 
@@ -18,8 +19,8 @@
 
 > "Among VIP segment customers, what percentage of orders were cancelled before shipment?"
 
-- The app figures out the schema, joins tables, interprets coded columns, generates the SQL, runs it, and returns:  
-  **20%** ✅
+- SnowGenie analyzes your schema, joins tables, interprets coded columns, generates SQL, runs it, and returns:  
+  **20% of VIP customer orders were cancelled before shipment** ✅
 
 ---
 
@@ -28,11 +29,11 @@
 ```
 .
 ├── App.py                # Streamlit frontend (main UI)
-├── LLM_server.py         # FastAPI server for LLM and agent orchestration
+├── LLM_server.py         # FastAPI server for Gemini AI and agent orchestration
 ├── Snow_MCP_server.py    # FastMCP server for Snowflake tool access
 ├── client.py             # CLI client for interactive chat
 ├── constants.py          # All configuration and environment variables
-├── requirements.txt      # Python dependencies
+├── requirements.txt      # Python dependencies including langchain-google-genai
 ├── .streamlit/           # Streamlit config
 ├── write_detector.py     # SQL write operation detector
 ├── README.md             # This file
@@ -41,53 +42,35 @@
 
 ---
 
-## 🤖 Setting Up Ollama
+## 🤖 Setting Up Google Gemini AI
 
-SnowGenie requires Ollama to be installed and running as it powers the local LLM functionality. Follow these steps to set up Ollama before proceeding with the main application setup:
+SnowGenie now uses Google's Gemini AI models for superior natural language understanding and SQL generation. You'll need a Google AI API key to get started.
 
-### Installing Ollama
+### Getting Your Gemini API Key
 
-#### For macOS:
-```bash
-# Using Homebrew
-brew install ollama
+1. **Visit Google AI Studio**: Go to [Google AI Studio](https://ai.google.dev/)
+2. **Sign in** with your Google account
+3. **Create API Key**: Click "Get API Key" and create a new key
+4. **Copy the key**: You'll need this for configuration
 
-# OR using the official install script
-curl -sS https://ollama.ai/install.sh | bash
+### Available Gemini Models
+- **gemini-2.0-flash** (Recommended) - Latest, fastest model
+- **gemini-1.5-pro** - Most capable for complex reasoning
+- **gemini-1.5-flash** - Fast and efficient
+- **gemini-pro** - Balanced performance
+- **gemini-2.5-pro-preview-06-05** - Latest preview model
+
+### Configuration
+
+Add your Gemini API key to the `constants.py` file:
+
+```python
+# Gemini AI Configuration
+GEMINI_API_KEY = "your_gemini_api_key_here"
+GEMINI_MODEL = "gemini-2.0-flash"  # or your preferred model
+GEMINI_TEMPERATURE = "0.5"
+GEMINI_MAX_TOKENS = "1000"
 ```
-
-#### For Windows:
-1. Download the Ollama installer from the [official website](https://ollama.ai)
-2. Run the downloaded installer and follow the installation wizard
-
-#### For Linux:
-```bash
-curl -sS https://ollama.ai/install.sh | bash
-```
-
-### Starting Ollama and Pulling the Required Model
-
-1. Start the Ollama service:
-```bash
-ollama serve
-```
-
-2. Pull the required model (we use qwen3:32b by default, but you can configure other models in the `constants.py` file):
-```bash
-ollama pull qwen3:32b
-```
-
-3. Verify Ollama is working correctly:
-```bash
-ollama list
-```
-
-You should see the downloaded model in the list. Note that models require sufficient RAM to run properly:
-- 7B models: at least 8GB RAM
-- 13B models: at least 16GB RAM
-- 32B+ models: at least 32GB RAM
-
-For more information and advanced options, visit the [Ollama documentation](https://ollama.ai/docs).
 
 ---
 
@@ -116,21 +99,23 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Configure Snowflake credentials
+### 4. Configure your credentials
 
-Edit the `constants.py` file to update your Snowflake credentials and other settings:
+Edit the `constants.py` file to update your Snowflake and Gemini credentials:
 
 ```python
-# Edit these values in constants.py
+# Snowflake Configuration
 SNOWFLAKE_USER = "your_username"
 SNOWFLAKE_PASSWORD = "your_password"
 SNOWFLAKE_ACCOUNT = "your_account"
 SNOWFLAKE_ROLE = "ACCOUNTADMIN"  # or your preferred role
 SNOWFLAKE_DATABASE = "RETAIL_POC"  # your database name
 SNOWFLAKE_SCHEMA = "SALES"  # your schema name
-```
 
-You can also configure other settings like LLM server host/port, default model, etc. in the same file.
+# Gemini AI Configuration
+GEMINI_API_KEY = "your_gemini_api_key_here"
+GEMINI_MODEL = "gemini-2.0-flash"
+```
 
 ### 5. Start the servers (in separate terminals)
 
@@ -158,29 +143,51 @@ streamlit run App.py
 
 ## 🖥️ How it Works
 
-- **Streamlit UI (`App.py`)**: User-friendly chat interface.
-- **LLM Server (`LLM_server.py`)**: Handles natural language, generates SQL, orchestrates tool calls.
-- **MCP Server (`Snow_MCP_server.py`)**: Exposes database tools (list tables, describe schema, run queries) to the agent.
-- **Ollama**: Local LLM backend (make sure Ollama is running and the model is pulled).
-- **Snowflake**: Connects directly to your Snowflake instance.
+- **Streamlit UI (`App.py`)**: Modern chat interface with real-time status indicators
+- **LLM Server (`LLM_server.py`)**: Integrates with Google Gemini AI for natural language processing and SQL generation
+- **MCP Server (`Snow_MCP_server.py`)**: Exposes database tools (list tables, describe schema, run queries) to the AI agent
+- **Google Gemini AI**: Cloud-based language model providing superior reasoning and code generation
+- **Snowflake**: Direct connection to your Snowflake data warehouse
+
+### Architecture Flow:
+1. User asks question in natural language
+2. Gemini AI analyzes the question and available database tools
+3. AI calls appropriate tools to understand schema and data
+4. AI generates and executes SQL queries
+5. Results are formatted and presented to user with reasoning
 
 ---
 
-## 🔒 Security
+## 🔒 Security & Privacy
 
-- All credentials are local and never sent to the cloud.
-- Only read-only queries are allowed by default (see `write_detector.py`).
+- **Credentials Stay Local**: Snowflake credentials never leave your machine
+- **API Communication**: Only natural language queries and responses sent to Gemini API
+- **Read-Only by Default**: Only SELECT queries allowed (see `write_detector.py`)
+- **Schema Privacy**: Database schema information is only used for query generation
 
 ---
 
 ## 🛠️ Troubleshooting
 
-- **Ollama not running?**  
-  Start it with `ollama serve` and pull your desired model (e.g., `ollama pull qwen3:32b`).
+- **Gemini API Key Issues?**  
+  Verify your API key is valid at [Google AI Studio](https://ai.google.dev/)
 - **Snowflake connection issues?**  
-  Double-check your credentials in `constants.py`.
+  Double-check your credentials in `constants.py`
 - **Port conflicts?**  
-  Change the relevant port settings in `constants.py`.
+  Change the relevant port settings in `constants.py`
+- **Model not available?**  
+  Try switching to a different Gemini model in the UI
+
+---
+
+## 🚀 Recent Updates
+
+### Version 2.0 - Gemini Integration
+- **Replaced Ollama** with Google Gemini AI for superior performance
+- **Added multiple model support** (Gemini 2.0 Flash, 1.5 Pro, etc.)
+- **Improved UI** with model status indicators and real-time updates
+- **Enhanced error handling** for better user experience
+- **Simplified setup** - no local LLM installation required
 
 ---
 

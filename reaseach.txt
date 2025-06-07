@@ -1,0 +1,2 @@
+https://github.com/danielmeppiel/oracle-mcp-server  *MCP Server for working with large Oracle databases*
+
