@@ -16,6 +16,7 @@ LLM_SERVER_URL = os.getenv("LLM_SERVER_URL", f"http://localhost:{LLM_SERVER_PORT
 DEFAULT_USER = os.getenv("DEFAULT_USER", "default_user")
 FALLBACK_MODELS = os.getenv("FALLBACK_MODELS", "gemini-2.0-flash,gemini-1.5-pro,gemini-1.5-flash").split(",") 
 
+
 # Snowflake Constants (no default values for sensitive data)
 SNOWFLAKE_USER = os.getenv("SNOWFLAKE_USER")
 SNOWFLAKE_PASSWORD = os.getenv("SNOWFLAKE_PASSWORD")
