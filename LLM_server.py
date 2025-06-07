@@ -1,5 +1,5 @@
 """
-llm_server.py – FastAPI wrapper around MCP‑Agent + Ollama LLM
+llm_server.py – FastAPI wrapper around MCP‑Agent + LLM
 ─────────────────────────────────────────────────────────────
 Copy‑paste this file as‑is, then run:
 
@@ -21,19 +21,22 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from typing import Dict, Optional
-import requests, asyncio, uvicorn, uuid, json, re
+import asyncio, uvicorn, uuid, json, re
 
 from mcp_use import MCPAgent, MCPClient
-from langchain_ollama import ChatOllama
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.runnables.schema import StreamEvent
 
 from constants import (
-    OLLAMA_API,
     DEFAULT_LLM_MODEL,
     LLM_SERVER_HOST,
     LLM_SERVER_PORT,
     AGENT_MAX_STEPS,
     AGENT_MEMORY_ENABLED,
+    GEMINI_API_KEY,
+    GEMINI_MODEL,
+    GEMINI_TEMPERATURE,
+    GEMINI_MAX_TOKENS,
 )
 
 # ───────────────────────── FastAPI app + session state ─────────────────────────
@@ -67,12 +70,16 @@ async def health_check():
 
 @app.get("/models", status_code=200)
 async def list_models():
-    try:
-        r = requests.get(f"{OLLAMA_API}/api/tags", timeout=5)
-        r.raise_for_status()
-        return {"models": [m["name"] for m in r.json().get("models", [])]}
-    except Exception as e:
-        return {"error": str(e), "models": []}
+    # Return available Gemini models
+    gemini_models = [
+        "gemini-2.0-flash",
+        "gemini-2.5-flash-preview-05-20", 
+        "gemini-1.5-pro",
+        "gemini-1.5-flash",
+        "gemini-pro",
+        "gemini-2.5-pro-preview-06-05",
+    ]
+    return {"models": gemini_models}
 
 # ─────────────────────────── helper: formatter function ────────────────────────
 def format_agent_event(event) -> Optional[dict]:
@@ -145,6 +152,10 @@ async def query_agent(request: QueryRequest):
 
     agent = agents[sid]
 
+    # Validate prompt is not empty (Gemini requirement)
+    if not request.prompt or request.prompt.strip() == "":
+        return {"session_id": sid, "response": "Empty prompt received. Please provide a valid question or request."}
+
     # STREAMING MODE
     if request.stream:
         return StreamingResponse(
@@ -166,7 +177,7 @@ async def create_session(req: SessionRequest):
     sid = str(uuid.uuid4())
     mcp_servers[sid] = req.mcp_server
     model_names[sid] = req.model_name
-    model_ok = check_model_exists(req.model_name)
+    model_ok = check_gemini_config()
     return SessionResponse(
         session_id=sid,
         message="Session created successfully",
@@ -174,23 +185,28 @@ async def create_session(req: SessionRequest):
     )
 
 # ─────────────────────────────── helper utilities ─────────────────────────────
-def check_model_exists(model_name: str) -> bool:
+def check_gemini_config() -> bool:
+    """Check if Gemini API key is configured"""
     try:
-        r = requests.get(f"{OLLAMA_API}/api/tags", timeout=5)
-        r.raise_for_status()
-        names = [m["name"] for m in r.json().get("models", [])]
-        return model_name in names
+        return bool(GEMINI_API_KEY and GEMINI_API_KEY != "")
     except Exception:
         return False
 
 def create_agent(mcp_url: str, model_name: str = DEFAULT_LLM_MODEL) -> MCPAgent:
     load_dotenv()
-    if not check_model_exists(model_name):
-        raise ValueError(f"Model {model_name} not found in Ollama")
+    
+    if not check_gemini_config():
+        raise ValueError("Gemini API key not configured")
+    
+    llm = ChatGoogleGenerativeAI(
+        model=model_name,
+        google_api_key=GEMINI_API_KEY,
+        temperature=float(GEMINI_TEMPERATURE),
+        max_tokens=int(GEMINI_MAX_TOKENS) if GEMINI_MAX_TOKENS != "None" else None,
+    )
 
     client_cfg = {"mcpServers": {"http": {"url": mcp_url}}}
     client = MCPClient.from_dict(client_cfg)
-    llm = ChatOllama(model=model_name)
 
     return MCPAgent(
         llm=llm,

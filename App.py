@@ -68,7 +68,7 @@ def draw_status():
         </div></div>""", unsafe_allow_html=True)
     
     st.sidebar.markdown(f"""<div style="display: flex; align-items: center; margin-bottom: 0.5rem;">
-        <div style="min-width: 95px; font-weight: 500; color: #475569;">LLM Model:</div>
+        <div style="min-width: 95px; font-weight: 500; color: #475569;">Gemini Model:</div>
         <div style="display: inline-flex; align-items: center; background-color: #f8fafc; 
         border-radius: 0.5rem; padding: 0.25rem 0.75rem; border: 1px solid #e2e8f0;">
         {model_icon} <span style="font-weight: 600; color: {model_color}; margin-left: 0.25rem;">
@@ -110,20 +110,18 @@ def bootstrap_session():
 # ───────────────────── sidebar configuration ─────────────────
 st.sidebar.markdown("""<h2 style="color: #1e293b; font-weight: 600; margin-bottom: 1rem;">Configuration</h2>""", unsafe_allow_html=True)
 
-# LLM model selector
-with st.sidebar.expander("LLM Model", True):
+# Gemini model selector
+with st.sidebar.expander("🤖 Gemini AI Model", True):
     models = fetch_available_models()
     idx = models.index(st.session_state.get("model_name", DEFAULT_LLM_MODEL)) if st.session_state.get("model_name") in models else 0
-    choice = st.selectbox("Select model", models, index=idx, key="model_choice")
+    choice = st.selectbox("Select Gemini model", models, index=idx, key="model_choice", 
+                         help="Choose from available Google Gemini models")
     if st.button("Apply Model", type="primary"):
         st.session_state.model_name = choice
-        if st.session_state.get("session_id"):
-            r = requests.post(
-                f"{LLM_SERVER_URL}/query",
-                json={"session_id": st.session_state.session_id, "prompt": "", "model_name": choice},
-            )
-            st.session_state.model_status = r.status_code == 200
-            st.sidebar.success("Model updated." if st.session_state.model_status else "Model change failed.")
+        # Simply update the model name without testing with empty prompt
+        # since Gemini doesn't accept empty prompts
+        st.session_state.model_status = True  # Assume model is available if API key is configured
+        st.sidebar.success("Gemini model updated!")
 
 # MCP server
 with st.sidebar.expander("MCP Server"):
@@ -131,13 +129,9 @@ with st.sidebar.expander("MCP Server"):
     p = st.number_input("Port", value=st.session_state.get("mcp_port", MCP_SERVER_PORT), step=1)
     if st.button("Apply MCP", type="primary"):
         st.session_state.update(mcp_host=h, mcp_port=int(p))
-        if st.session_state.get("session_id"):
-            url = f"http://{h}:{int(p)}/sse"
-            requests.post(
-                f"{LLM_SERVER_URL}/query",
-                json={"session_id": st.session_state.session_id, "prompt": "", "mcp_server": url},
-            )
-            st.sidebar.success("MCP endpoint updated.")
+        # Update MCP configuration without sending empty prompt
+        # Will be applied on next actual query
+        st.sidebar.success("MCP endpoint updated.")
 
 # user name
 with st.sidebar.expander("User"):
@@ -152,7 +146,10 @@ if st.sidebar.button("🔄 Refresh Status", type="secondary"):
 # ───────────────────── main chat area ──────────────────────
 st.markdown("""
 <h1 style="color: #0f172a; font-weight: 700; border-bottom: 2px solid #3366ff; 
-padding-bottom: 0.5rem; margin-bottom: 1.5rem;">Redhat's SnowGinie </h1>
+padding-bottom: 0.5rem; margin-bottom: 1.5rem;">🚀 SnowGenie AI Assistant</h1>
+<p style="color: #64748b; font-size: 1.1rem; margin-bottom: 1.5rem;">
+Powered by Google Gemini AI for intelligent data insights
+</p>
 """, unsafe_allow_html=True)
 
 bootstrap_session()
@@ -253,7 +250,7 @@ def render_chunk(kind: str, text: str, container):
 
 # ---------- input ----------
 if st.session_state.get("model_status"):
-    user_prompt = st.chat_input("Ask me anything about your database…", key="chat_input")
+    user_prompt = st.chat_input("Ask me anything about your Snowflake data with Gemini AI…", key="chat_input")
 else:
     user_prompt = None
     st.markdown("""
@@ -261,10 +258,10 @@ else:
     border-radius: 0.5rem; margin: 1rem 0;">
       <div style="display: flex; align-items: center;">
         <span style="font-size: 1.25rem; margin-right: 0.5rem;">⚠️</span>
-        <span style="font-weight: 600; color: #92400e;">Model unavailable</span>
+        <span style="font-weight: 600; color: #92400e;">Gemini AI Unavailable</span>
       </div>
       <p style="color: #92400e; margin-top: 0.5rem; margin-bottom: 0;">
-        Please check your configuration settings and ensure the model is properly loaded.
+        Please check your Gemini API key configuration and ensure the model is properly loaded.
       </p>
     </div>
     """, unsafe_allow_html=True)
