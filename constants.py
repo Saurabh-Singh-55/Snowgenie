@@ -33,7 +33,7 @@ MCP_LOG_LEVEL = os.getenv("MCP_LOG_LEVEL", "info")
 
 
 #gemini constants
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyA1RCoRh7eWiBcHW6PJVlfr0asS9J0BP5k")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "...")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-preview-05-20")
 GEMINI_TEMPERATURE = os.getenv("GEMINI_TEMPERATURE", "0")
 GEMINI_MAX_TOKENS = os.getenv("GEMINI_MAX_TOKENS", "2000")
