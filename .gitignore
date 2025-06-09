@@ -11,3 +11,13 @@ wheels/
 
 # Environment variables
 .env
+
+# Cache files
+db_schema_cache.json
+
+.streamlit/
+
+.python-version
+
+client.py
+reaseach.txt

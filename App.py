@@ -36,6 +36,32 @@ def fetch_available_models() -> List[str]:
     except Exception:
         return FALLBACK_MODELS
 
+def refresh_schema_cache():
+    """Refresh the Snowflake schema cache by running the initialization script."""
+    try:
+        import subprocess
+        import sys
+        
+        # Run the initialization script
+        process = subprocess.run(
+            [sys.executable, "SnowMCP_initialize.py"],
+            capture_output=True,
+            text=True
+        )
+        
+        if process.returncode == 0:
+            st.sidebar.success("Schema cache refreshed successfully!")
+            # Add more detailed success info if available
+            if process.stdout:
+                with st.sidebar.expander("Refresh Details"):
+                    st.code(process.stdout)
+        else:
+            st.sidebar.error("Failed to refresh schema cache.")
+            with st.sidebar.expander("Error Details"):
+                st.error(process.stderr)
+    except Exception as e:
+        st.sidebar.error(f"Error refreshing cache: {str(e)}")
+
 # ───────────────────── status badge sidebar ─────────────────────
 def draw_status():
     llm_ok = check_server(LLM_SERVER_URL)
@@ -142,6 +168,10 @@ with st.sidebar.expander("User"):
 
 if st.sidebar.button("🔄 Refresh Status", type="secondary"):
     draw_status()
+
+# Add this after the "Refresh Status" button in the sidebar
+if st.sidebar.button("🔄 Refresh Schema Cache", type="secondary", help="Rebuild the Snowflake schema cache"):
+    refresh_schema_cache()
 
 # ───────────────────── main chat area ──────────────────────
 st.markdown("""

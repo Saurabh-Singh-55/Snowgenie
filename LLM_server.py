@@ -73,9 +73,9 @@ async def health_check():
 async def list_models():
     # Return available Gemini models
     gemini_models = [
+        "gemini-2.5-flash-preview-05-20",
         "gemini-2.0-flash",
-        "gemini-2.5-flash-preview-04-17",
-        "gemini-2.5-flash-preview-05-20", 
+        "gemini-2.5-flash-preview-04-17", 
         "gemini-1.5-pro",
         "gemini-1.5-flash",
         "gemini-2.5-flash-preview-native-audio-dialog",
