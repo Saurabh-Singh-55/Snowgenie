@@ -94,21 +94,20 @@ db = SnowflakeDatabase()
 # ------------------  MCP TOOLS  -----------------------------------#
 @mcp.tool()
 async def list_databases() -> List[str]:
-    """Return current accesable database the current role can see.
+    """Return current accesable database containing the relevant information.
     """
     # return await db.list_databases()
     return SNOWFLAKE_DATABASE
 
 @mcp.tool()
 async def list_schemas() -> List[str]:
-    """Name of the schema of the current database the current role can see.
+    """Name of the schema of the current database containing the relevant information.
     """
     return SNOWFLAKE_SCHEMA;
 
 @mcp.tool()
 async def list_tables() -> List[Dict[str, Any]]:
-    """List tables in the current database.schema and the current role can see.
-    
+    """List tables in the current database.schema containing the relevant information.
     """
     return await db.list_tables(SNOWFLAKE_DATABASE.upper(), SNOWFLAKE_SCHEMA.upper())
 
@@ -141,11 +140,14 @@ async def describe_table(table_name: str) -> List[Dict[str, Any]]:
 
 @mcp.tool()
 async def read_query(query: str) -> List[Dict[str, Any]]:
-    """Query database with only read operations and should not contain write operations
+    """Query the database with only read operations and should not contain write operations
     like INSERT, UPDATE, DELETE, MERGE, UPSERT, REPLACE, CREATE, ALTER, DROP, TRUNCATE, RENAME, GRANT, REVOKE.
-    
-    Query should only run on available databases and schemas.
-    it can run exactly one SQL statement per call.
+    Must ensure that table names in a SQL query are fully qualified (like database.schema.table).
+    Example: `FROM sales.return` becomes `FROM retail_poc.sales.return`.
+    Must run only one SQL statement per call.
+    supports only Snowflake‑compatible SQL (ANSI‑99 core + SQL:2003 analytics). 
+    Avoid features Snowflake ignores or blocks—indexes, triggers, enforced PK/FK, stored routines/cursors,
+    recursive CTEs, UPDATE…FROM, MySQL/T‑SQL syntax, or vendor‑specific functions.
     Args:
         query: A single read SQL query to execute with the database and schema always written before the table name.
     """
