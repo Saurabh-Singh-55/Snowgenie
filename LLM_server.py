@@ -40,6 +40,17 @@ from constants import (
 )
 import mcp_use
 mcp_use.set_debug(2)
+
+
+import logging
+logging.basicConfig(
+    level=logging.INFO,                   # set to DEBUG for full trace
+    format="%(asctime)s  %(levelname)-8s %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger("llm_server")
+
+
 # ───────────────────────── FastAPI app + session state ─────────────────────────
 app = FastAPI(title="LLM Server")
 

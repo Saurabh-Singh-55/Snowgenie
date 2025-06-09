@@ -7,7 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.12",
     "fastembed>=0.7.0",
-    "fastmcp>=2.3.1",
+    "fastmcp==2.3.1",
     "langchain>=0.3.25",
     "langchain-community>=0.3.23",
     "langchain-google-genai>=2.1.5",
@@ -20,4 +20,5 @@ dependencies = [
     "sqlparse>=0.5.3",
     "sseclient-py>=1.8.0",
     "streamlit>=1.45.0",
+    "streamlit-autorefresh>=1.0.1",
 ]
