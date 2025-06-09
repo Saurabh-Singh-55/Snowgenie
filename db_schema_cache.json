@@ -1,0 +1,264 @@
+{
+    "databases": {
+        "RETAIL_POC": {
+            "schemas": {
+                "SALES": {
+                    "tables": {
+                        "RETURN": {
+                            "comment": "Customer\u2011initiated returns with resolution classification",
+                            "columns": [
+                                {
+                                    "COLUMN_NAME": "RETURN_ID",
+                                    "DATA_TYPE": "NUMBER",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "Surrogate return key"
+                                },
+                                {
+                                    "COLUMN_NAME": "ORDER_ITEM_ID",
+                                    "DATA_TYPE": "NUMBER",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "FK to ORDER_ITEM"
+                                },
+                                {
+                                    "COLUMN_NAME": "RETURN_DTTM",
+                                    "DATA_TYPE": "TIMESTAMP_LTZ",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "Date/time customer initiated return"
+                                },
+                                {
+                                    "COLUMN_NAME": "RETURN_RES_CD",
+                                    "DATA_TYPE": "TEXT",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "Return resolution code (CR\u2011customer remorse, DM\u2011damaged, DD\u2011defective, NR\u2011not\u2011received, EX\u2011exchange, OT\u2011other)"
+                                }
+                            ],
+                            "sample_row": {
+                                "RETURN_ID": 5001,
+                                "ORDER_ITEM_ID": 10004,
+                                "RETURN_DTTM": "2025-04-22T00:00:00-07:00",
+                                "RETURN_RES_CD": "CR"
+                            }
+                        },
+                        "STATUS_DIM": {
+                            "comment": "Central status lookup to improve query joins and LLM interpretability",
+                            "columns": [
+                                {
+                                    "COLUMN_NAME": "STATUS_CD",
+                                    "DATA_TYPE": "TEXT",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "Code used in *_stat_cd columns"
+                                },
+                                {
+                                    "COLUMN_NAME": "STATUS_DESC",
+                                    "DATA_TYPE": "TEXT",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "Business meaning (e.g., SH = Shipped)"
+                                },
+                                {
+                                    "COLUMN_NAME": "LIFECYCLE_AREA",
+                                    "DATA_TYPE": "TEXT",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "Domain area: order, fulfillment, return"
+                                }
+                            ],
+                            "sample_row": {
+                                "STATUS_CD": "NB",
+                                "STATUS_DESC": "New-basket",
+                                "LIFECYCLE_AREA": "order"
+                            }
+                        },
+                        "ORDERS": {
+                            "comment": "Header\u2011level order facts",
+                            "columns": [
+                                {
+                                    "COLUMN_NAME": "ORDER_ID",
+                                    "DATA_TYPE": "NUMBER",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "Surrogate order key"
+                                },
+                                {
+                                    "COLUMN_NAME": "CUSTOMER_ID",
+                                    "DATA_TYPE": "NUMBER",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "FK to CUSTOMER"
+                                },
+                                {
+                                    "COLUMN_NAME": "ORDER_PLACED_DTTM",
+                                    "DATA_TYPE": "TIMESTAMP_LTZ",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "Time order captured in front\u2011end"
+                                },
+                                {
+                                    "COLUMN_NAME": "ORDER_SRC_SYS_CD",
+                                    "DATA_TYPE": "TEXT",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "Channel code: WB\u2011web, MB\u2011mobile, CS\u2011customer\u2011service, API\u2011partner API"
+                                },
+                                {
+                                    "COLUMN_NAME": "ORDER_STAT_CD",
+                                    "DATA_TYPE": "TEXT",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "Order pipeline status code (10\u2011state lifecycle; see STATUS_DIM)"
+                                },
+                                {
+                                    "COLUMN_NAME": "PROMO_APPL_IND",
+                                    "DATA_TYPE": "TEXT",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "Y if at least one promo discount applied"
+                                }
+                            ],
+                            "sample_row": {
+                                "ORDER_ID": 1001,
+                                "CUSTOMER_ID": 1,
+                                "ORDER_PLACED_DTTM": "2025-04-12T10:00:00-07:00",
+                                "ORDER_SRC_SYS_CD": "MB",
+                                "ORDER_STAT_CD": "PB",
+                                "PROMO_APPL_IND": "Y"
+                            }
+                        },
+                        "CUSTOMER": {
+                            "comment": "Master list of customers and marketing attributes",
+                            "columns": [
+                                {
+                                    "COLUMN_NAME": "CUSTOMER_ID",
+                                    "DATA_TYPE": "NUMBER",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "Surrogate key"
+                                },
+                                {
+                                    "COLUMN_NAME": "CUST_NAME",
+                                    "DATA_TYPE": "TEXT",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "Full legal name recorded at account creation"
+                                },
+                                {
+                                    "COLUMN_NAME": "CUST_SEG_CD",
+                                    "DATA_TYPE": "TEXT",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "3\u2011char marketing segment code (EN=Enterprise, PL=Platinum, VP=VIP, RT=Retail, GN=General)"
+                                },
+                                {
+                                    "COLUMN_NAME": "ACQ_SRC_CD",
+                                    "DATA_TYPE": "TEXT",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "Channel where account originated (EM\u2011email, PR\u2011partner, DS\u2011direct\u2011site, AP\u2011affiliate\u2011portal)"
+                                },
+                                {
+                                    "COLUMN_NAME": "FIRST_ORDER_DTTM",
+                                    "DATA_TYPE": "TIMESTAMP_LTZ",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "Timestamp of first successful paid order"
+                                }
+                            ],
+                            "sample_row": {
+                                "CUSTOMER_ID": 1,
+                                "CUST_NAME": "Acme Corp",
+                                "CUST_SEG_CD": "EN",
+                                "ACQ_SRC_CD": "EM",
+                                "FIRST_ORDER_DTTM": "2024-01-15T09:00:00-08:00"
+                            }
+                        },
+                        "ORDER_ITEM": {
+                            "comment": "Line\u2011level detail per product on each order",
+                            "columns": [
+                                {
+                                    "COLUMN_NAME": "ORDER_ITEM_ID",
+                                    "DATA_TYPE": "NUMBER",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "Surrogate line key"
+                                },
+                                {
+                                    "COLUMN_NAME": "ORDER_ID",
+                                    "DATA_TYPE": "NUMBER",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "FK to ORDERS"
+                                },
+                                {
+                                    "COLUMN_NAME": "PRODUCT_ID",
+                                    "DATA_TYPE": "NUMBER",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "FK to PRODUCT"
+                                },
+                                {
+                                    "COLUMN_NAME": "QTY",
+                                    "DATA_TYPE": "NUMBER",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "Purchased quantity (may be fractional for weight\u2011based SKUs)"
+                                },
+                                {
+                                    "COLUMN_NAME": "UNIT_PRICE",
+                                    "DATA_TYPE": "NUMBER",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "List price at transaction time"
+                                },
+                                {
+                                    "COLUMN_NAME": "FULFILL_STAT_CD",
+                                    "DATA_TYPE": "TEXT",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "Fulfillment status code (PK\u2011picked, PKB\u2011picked\u2011backordered, SH\u2011shipped, DL\u2011delivered, CN\u2011cancelled, RT\u2011returned)"
+                                },
+                                {
+                                    "COLUMN_NAME": "SHIP_MODE_CD",
+                                    "DATA_TYPE": "TEXT",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "Shipping mode (ST\u2011standard, EX\u2011express, PU\u2011pickup, FR\u2011freight, IN\u2011international)"
+                                }
+                            ],
+                            "sample_row": {
+                                "ORDER_ITEM_ID": 10001,
+                                "ORDER_ID": 1001,
+                                "PRODUCT_ID": 102,
+                                "QTY": 3.0,
+                                "UNIT_PRICE": 30.0,
+                                "FULFILL_STAT_CD": "PB",
+                                "SHIP_MODE_CD": "IN"
+                            }
+                        },
+                        "PRODUCT": {
+                            "comment": "Product catalog with profit metrics and shipping constraints",
+                            "columns": [
+                                {
+                                    "COLUMN_NAME": "PRODUCT_ID",
+                                    "DATA_TYPE": "NUMBER",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "Surrogate key"
+                                },
+                                {
+                                    "COLUMN_NAME": "SKU",
+                                    "DATA_TYPE": "TEXT",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "Merchant SKU"
+                                },
+                                {
+                                    "COLUMN_NAME": "PROD_NAME",
+                                    "DATA_TYPE": "TEXT",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "Customer\u2011facing name"
+                                },
+                                {
+                                    "COLUMN_NAME": "GM_PCT",
+                                    "DATA_TYPE": "NUMBER",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "Gross margin % (0\u2011100, derived on ingest)"
+                                },
+                                {
+                                    "COLUMN_NAME": "HAZ_IND",
+                                    "DATA_TYPE": "TEXT",
+                                    "IS_NULLABLE": "YES",
+                                    "COMMENT": "Y if product classified as hazardous for shipping"
+                                }
+                            ],
+                            "sample_row": {
+                                "PRODUCT_ID": 101,
+                                "SKU": "SKU-AX1",
+                                "PROD_NAME": "Alpha Phone",
+                                "GM_PCT": 40.0,
+                                "HAZ_IND": "N"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

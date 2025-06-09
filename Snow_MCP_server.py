@@ -1,4 +1,6 @@
 import logging
+import json #-NEW-
+import os   #-NEW-
 from contextlib import closing
 from typing import List, Dict, Any
 from write_detector import SQLWriteDetector
@@ -25,19 +27,35 @@ from constants import (
 logger = logging.getLogger("mcp_snowflake_server")
 logger.info("Starting MCP Snowflake Server")
 
+# --- NEW: Load the schema from the cache file on startup ---
+SCHEMA_CACHE = {}
+CACHE_FILE_PATH = "db_schema_cache.json"
+try:
+    with open(CACHE_FILE_PATH, "r") as f:
+        SCHEMA_CACHE = json.load(f)
+    logger.info(f"Successfully loaded schema cache from '{CACHE_FILE_PATH}'")
+except FileNotFoundError:
+    logger.error(f"FATAL: Cache file not found at '{CACHE_FILE_PATH}'.")
+    logger.error("The 'list_tables' and 'describe_table' tools will fail.")
+    logger.error("Please run the initialization script to build the cache.")
+except json.JSONDecodeError:
+    logger.error(f"FATAL: Could not decode JSON from cache file '{CACHE_FILE_PATH}'. It may be corrupt.")
+    SCHEMA_CACHE = {}
+# --- END NEW ---
+
+
 # ------------------------------------------------------------------#
 # FastMCP instance – name shows up in clients                       #
 # ------------------------------------------------------------------#
 mcp = FastMCP(MCP_SERVER_NAME)
 
-# ----------  DATABASE WRAPPER  ------------------------------------#
+# ----------  DATABASE WRAPPER (Kept for 'read_query') -------------#
 class SnowflakeDatabase:
-    """Thin wrapper around Snowflake with helper queries."""
+    """Thin wrapper around Snowflake with helper queries. Used for live data queries."""
 
     def __init__(self):
         self._test_connection()
 
-    # ---------------- Private helpers -----------------------------#
     def _get_connection(self):
         return snowflake.connector.connect(
             user=SNOWFLAKE_USER,
@@ -51,9 +69,8 @@ class SnowflakeDatabase:
         with closing(self._get_connection()) as conn, closing(conn.cursor()) as cur:
             cur.execute("SELECT CURRENT_VERSION()")
             version = cur.fetchone()[0]
-            logger.info(f"Connected to Snowflake {version}")
+            logger.info(f"Connected to Snowflake {version} for live queries.")
 
-    # ---------------- Public helper queries -----------------------#
     async def execute_query(self, query: str) -> List[Dict[str, Any]]:
         with closing(self._get_connection()) as conn, closing(
             conn.cursor(snowflake.connector.DictCursor)
@@ -61,55 +78,46 @@ class SnowflakeDatabase:
             cur.execute(query)
             return cur.fetchall() if cur.description else []
 
-    async def list_databases(self) -> List[str]:
-        rows = await self.execute_query("SHOW DATABASES")
-        return [r["name"] for r in rows]
-
-    async def list_schemas(self, database: str) -> List[str]:
-        rows = await self.execute_query(f"SHOW SCHEMAS IN {database}")
-        return [r["name"] for r in rows]
-
-    async def list_tables(self, database: str, schema: str) -> List[Dict[str, Any]]:
-        query = (
-            "SELECT table_name, comment FROM "
-            f"{database}.information_schema.tables WHERE table_schema='{schema}'"
-        )
-        rows = await self.execute_query(query)
-        return [
-            {"database": database, "schema": schema, "name": r["TABLE_NAME"], "comment": r["COMMENT"]}
-            for r in rows
-        ]
-
-    async def describe_table(self, database: str, schema: str, table: str) -> List[Dict[str, Any]]:
-        query = (
-            "SELECT column_name, data_type, is_nullable, comment "
-            f"FROM {database}.information_schema.columns "
-            f"WHERE table_schema='{schema}' AND table_name='{table}' ORDER BY ordinal_position"
-        )
-        return await self.execute_query(query)
-
 # ------------------------------------------------------------------#
+# This object is now only used by the 'read_query' tool.
 db = SnowflakeDatabase()
 
-# ------------------  MCP TOOLS  -----------------------------------#
+# ------------------  MCP TOOLS (Modified to use cache) ----------------#
 @mcp.tool()
 async def list_databases() -> List[str]:
     """Return current accesable database containing the relevant information.
     """
-    # return await db.list_databases()
-    return SNOWFLAKE_DATABASE
+    return [SNOWFLAKE_DATABASE]
 
 @mcp.tool()
 async def list_schemas() -> List[str]:
     """Name of the schema of the current database containing the relevant information.
     """
-    return SNOWFLAKE_SCHEMA;
+    return [SNOWFLAKE_SCHEMA]
 
 @mcp.tool()
 async def list_tables() -> List[Dict[str, Any]]:
     """List tables in the current database.schema containing the relevant information.
     """
-    return await db.list_tables(SNOWFLAKE_DATABASE.upper(), SNOWFLAKE_SCHEMA.upper())
+    if not SCHEMA_CACHE:
+        return [{"error": "Schema cache is not loaded. Please run the initialization script."}]
+    try:
+        db_name = SNOWFLAKE_DATABASE.upper()
+        schema_name = SNOWFLAKE_SCHEMA.upper()
+        tables_dict = SCHEMA_CACHE["databases"][db_name]["schemas"][schema_name]["tables"]
+        
+        return [
+            {
+                "database": db_name,
+                "schema": schema_name,
+                "name": table_name,
+                "comment": table_info.get("comment", "")
+            }
+            for table_name, table_info in tables_dict.items()
+        ]
+    except KeyError:
+        return [{"error": f"Database '{SNOWFLAKE_DATABASE}' or Schema '{SNOWFLAKE_SCHEMA}' not found in cache."}]
+
 
 @mcp.tool()
 async def describe_table(table_name: str) -> List[Dict[str, Any]]:
@@ -120,23 +128,28 @@ async def describe_table(table_name: str) -> List[Dict[str, Any]]:
     Args:
         table_name: The name of the table to describe (without database and schema).
     """
-    database = SNOWFLAKE_DATABASE.upper()
-    schema = SNOWFLAKE_SCHEMA.upper()
-    table = table_name.upper()
-    
-    columns = await db.describe_table(database, schema, table)
-    
-    # Get a sample row to provide context
-    sample_query = f"SELECT * FROM {database}.{schema}.{table} LIMIT 1"
-    sample_data = await db.execute_query(sample_query)
-    
-    # Add the sample data to the result
-    if sample_data:
-        columns.append({
-            "sample_data": sample_data[0]
-        })
-    
-    return columns
+    if not SCHEMA_CACHE:
+        return [{"error": "Schema cache is not loaded. Please run the initialization script."}]
+        
+    try:
+        db_name = SNOWFLAKE_DATABASE.upper()
+        schema_name = SNOWFLAKE_SCHEMA.upper()
+        table_upper = table_name.upper()
+        
+        table_info = SCHEMA_CACHE["databases"][db_name]["schemas"][schema_name]["tables"][table_upper]
+        
+        columns = table_info.get("columns", [])
+        sample_row = table_info.get("sample_row")
+        
+        result = list(columns)
+        if sample_row:
+            result.append({
+                "SAMPLE_DATA": sample_row
+            })
+        return result
+    except KeyError:
+        return [{"error": f"Table '{table_name}' not found in the SNOWFLAKE DB cached for {SNOWFLAKE_DATABASE}.{SNOWFLAKE_SCHEMA}."}]
+
 
 @mcp.tool()
 async def read_query(query: str) -> List[Dict[str, Any]]:
