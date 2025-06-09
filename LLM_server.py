@@ -38,7 +38,8 @@ from constants import (
     GEMINI_TEMPERATURE,
     GEMINI_MAX_TOKENS,
 )
-
+import mcp_use
+mcp_use.set_debug(2)
 # ───────────────────────── FastAPI app + session state ─────────────────────────
 app = FastAPI(title="LLM Server")
 
@@ -73,10 +74,11 @@ async def list_models():
     # Return available Gemini models
     gemini_models = [
         "gemini-2.0-flash",
+        "gemini-2.5-flash-preview-04-17",
         "gemini-2.5-flash-preview-05-20", 
         "gemini-1.5-pro",
         "gemini-1.5-flash",
-        "gemini-pro",
+        "gemini-2.5-flash-preview-native-audio-dialog",
         "gemini-2.5-pro-preview-06-05",
     ]
     return {"models": gemini_models}

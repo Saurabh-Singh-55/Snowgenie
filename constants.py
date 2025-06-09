@@ -28,7 +28,7 @@ SNOWFLAKE_WAREHOUSE = os.getenv("SNOWFLAKE_WAREHOUSE", "COMPUTE_WH")
 MCP_SERVER_HOST = os.getenv("MCP_SERVER_HOST", "127.0.0.1")
 MCP_SERVER_PORT = int(os.getenv("MCP_SERVER_PORT", "8000"))
 MCP_SERVER_NAME = os.getenv("MCP_SERVER_NAME", "Snowflake-Manager")
-MCP_LOG_LEVEL = os.getenv("MCP_LOG_LEVEL", "info")
+MCP_LOG_LEVEL = os.getenv("MCP_LOG_LEVEL", "DEBUG")
 
 # Gemini Constants (no default values for sensitive data)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
