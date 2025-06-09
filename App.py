@@ -5,7 +5,7 @@ import requests, socket, json, datetime, time, re
 from typing import List
 import threading, queue
 from streamlit_autorefresh import st_autorefresh
-
+import sqlparse
 from constants import (
     LLM_SERVER_URL,
     DEFAULT_LLM_MODEL,
@@ -14,15 +14,121 @@ from constants import (
     DEFAULT_USER,
     FALLBACK_MODELS,
 )
-# ───────────── balloon fragment ─────────────
-@st.fragment
-def celebrate():
-    """Independent fragment: click ⇒ balloons, no full rerun."""
-    if st.button("🎈 Celebrate", key="balloon_btn", help="Click to release balloons"):
-        st.balloons()
 
+
+APPROVAL_API = "http://localhost:8001"       #  ← FastAPI base URL
+
+@st.fragment
+def review_sql():
+    """
+    Sidebar fragment:
+    • 🔄 Fetch SQL → shows the first pending query *below the chat stream*
+    • ✅ Approve / ❌ Reject → updates FastAPI and appends an "Authorization"
+      block that looks like the existing “Tool Response” section.
+    """
+    # ── helpers ──────────────────────────────────────────────────────────
+    def _pretty_sql(q: str) -> str:
+        """
+        Return nicely formatted SQL.
+        Falls back to simple line‑break heuristics if sqlparse isn’t available.
+        """
+        if sqlparse:
+            return sqlparse.format(q, keyword_case="upper", reindent=True, wrap_after=60)
+
+        # very lightweight fallback – insert breaks before main clauses/joins
+        pattern = re.compile(
+            r"\b(SELECT|FROM|WHERE|GROUP BY|ORDER BY|HAVING|LIMIT|JOIN|"
+            r"LEFT JOIN|RIGHT JOIN|INNER JOIN|OUTER JOIN|UNION|EXCEPT|INTERSECT)\b",
+            flags=re.I,
+        )
+        return pattern.sub(r"\n\1", q).strip()
+
+
+    def _push_auth_html(query: str, label: str, color: str) -> None:
+        """Add an <Authorization …> collapsible block to chat history."""
+        formatted = _pretty_sql(query)
+        html = (
+            "<details style='margin-bottom:1rem;'>"
+            f"<summary style='background-color:#f7f9fc;padding:.5rem;border-radius:.5rem .5rem 0 0;"
+            "font-weight:600;cursor:pointer;border:1px solid #e2e8f0;border-bottom:none;"
+            f"color:{color};'>Authorization – {label}</summary>"
+            "<div style='background-color:#f8fafc;padding:1rem;border:1px solid #e2e8f0;"
+            "border-radius:0 0 .5rem .5rem;'>"
+            "<pre style='background-color:#f1f5f9;padding:.75rem;border-radius:.25rem;overflow:auto;'>"
+            f"<code>{formatted}</code></pre></div></details>"
+        )
+        st.session_state.setdefault("messages", [])
+        st.session_state.messages.append({"role": "assistant", "content": html, "is_html": True})
+
+    # keep the currently selected queue item in session state
+    st.session_state.setdefault("queue_item", None)
+
+    col1, col2, col3 = st.columns(3)
+
+    # ── Fetch ────────────────────────────────────────────────────────────
+    with col1:
+        if st.button("🔄 Fetch SQL", key="fetch_sql_btn"):
+            try:
+                resp = requests.get(f"{APPROVAL_API}/pending", timeout=5)
+                resp.raise_for_status()
+                pending = [q for q in resp.json() if q["status"] == "pending"]
+                st.session_state.queue_item = pending[0] if pending else None
+
+                if st.session_state.queue_item:
+                    _push_auth_html(
+                        st.session_state.queue_item["query"],
+                        "Pending",
+                        "#475569",            # slate‑gray
+                    )
+                    st.rerun()
+                else:
+                    st.warning("No pending SQL to review.")
+            except Exception as e:
+                st.error(f"Fetch error: {e}")
+
+    # ── Approve ──────────────────────────────────────────────────────────
+    with col2:
+        if st.button("✅ Approve", key="approve_btn",
+                     disabled=st.session_state.queue_item is None):
+            try:
+                sid = st.session_state.queue_item["session_id"]
+                requests.post(f"{APPROVAL_API}/approve/{sid}",
+                              json={"approved": True}, timeout=5)
+                _push_auth_html(
+                    st.session_state.queue_item["query"],
+                    "Approved",
+                    "#0a7b3e",             # green
+                )
+            except Exception as e:
+                st.error(f"Approve error: {e}")
+            finally:
+                st.session_state.queue_item = None
+                st.rerun()
+
+    # ── Reject ───────────────────────────────────────────────────────────
+    with col3:
+        if st.button("❌ Reject", key="reject_btn",
+                     disabled=st.session_state.queue_item is None):
+            try:
+                sid = st.session_state.queue_item["session_id"]
+                requests.post(f"{APPROVAL_API}/approve/{sid}",
+                              json={"approved": False}, timeout=5)
+                _push_auth_html(
+                    st.session_state.queue_item["query"],
+                    "Rejected",
+                    "#d32f2f",             # red
+                )
+            except Exception as e:
+                st.error(f"Reject error: {e}")
+            finally:
+                st.session_state.queue_item = None
+                st.rerun()
+
+
+# Attach fragment to the sidebar
 with st.sidebar:
-    celebrate()
+    review_sql()
+
 
 def start_stream_worker(prompt: str):
     if "stream_q" in st.session_state:      # already running
@@ -184,6 +290,30 @@ with st.sidebar.expander("🤖 Gemini AI Model", True):
         "model_name"
     ) in models else 0
     choice = st.selectbox("Select Gemini model", models, index=idx)
+    
+    # Display model description
+    model_info = {
+        'gemini-2.5-flash-preview-05-20': 'Adaptive thinking, cost efficiency',
+        'gemini-2.5-flash-preview-native-audio-dialog': 'High quality audio outputs',
+        'gemini-2.5-flash-exp-native-audio-thinking-dialog': 'Natural conversational audio',
+        'gemini-2.5-flash-preview-tts': 'Text-to-speech generation',
+        'gemini-2.5-pro-preview-06-05': 'Enhanced reasoning & multimodal',
+        'gemini-2.5-pro-preview-tts': 'Advanced text-to-speech',
+        'gemini-2.0-flash': 'Next-gen features & streaming',
+        'gemini-2.0-flash-preview-image-generation': 'Image generation & editing',
+        'gemini-2.0-flash-lite': 'Cost efficient & low latency',
+        'gemini-1.5-flash': 'Fast & versatile performance',
+        'gemini-1.5-flash-8b': 'High volume tasks',
+        'gemini-1.5-pro': 'Complex reasoning tasks',
+        'gemini-embedding-exp': 'Text embeddings',
+        'imagen-3.0-generate-002': 'Advanced image generation',
+        'veo-2.0-generate-001': 'Video generation',
+        'gemini-2.0-flash-live-001': 'Bidirectional voice & video'
+    }
+    
+    if choice in model_info:
+        st.info(f"Model Description: {model_info[choice]}")
+    
     if st.button("Apply Model", type="primary"):
         st.session_state.model_name = choice
         st.session_state.model_status = True
@@ -212,7 +342,7 @@ if st.sidebar.button("🔄 Refresh Schema Cache", type="secondary"):
 st.markdown(
     """
 <h1 style="color:#0f172a;font-weight:700;border-bottom:2px solid #3366ff;
-padding-bottom:.5rem;margin-bottom:1.5rem;">🚀 SnowGenie AI Assistant</h1>
+padding-bottom:.5rem;margin-bottom:1.5rem;"> ❄️ SnowGenie AI Assistant</h1>
 <p style="color:#64748b;font-size:1.1rem;margin-bottom:1.5rem;">
 Powered by Google Gemini AI for intelligent data insights
 </p>
@@ -394,47 +524,3 @@ if "stream_q" in st.session_state:       # we’re in streaming mode
         # cleanup
         st.session_state.pop("stream_q")
         st.session_state.pop("stream_done")
-
-
-
-
-
-
-
-
-
-
-
-
-
-# if prompt:
-#     # ── user turn ──
-#     st.session_state.messages.append({"role": "user", "content": prompt})
-#     with st.chat_message("user"):
-#         st.markdown(prompt)
-
-#     # ── assistant turn buffer ──
-#     st.session_state.assistant_buffer = []
-
-#     with st.chat_message("assistant"):
-#         outer = st.container()
-#         live, final_html, thinking_shown = "", "", False
-
-#         for k, txt in stream_agent(prompt):
-#             if k == "chunk":
-#                 live += txt
-#                 final_html = render("chunk", live, outer.container())
-#             elif k == "think" and not thinking_shown:
-#                 thinking_shown = True
-#                 store_event(render(k, txt, outer))
-#             elif k in ("tool", "function"):
-#                 store_event(render(k, txt, outer))
-
-#         if final_html:
-#             store_event(final_html)  # last version of the answer
-
-#     # ── commit assistant turn to history ──
-#     st.session_state.messages.append(
-#         {"role": "assistant", "content": "\n".join(st.session_state.assistant_buffer), "is_html": True}
-#     )
-#     del st.session_state.assistant_buffer

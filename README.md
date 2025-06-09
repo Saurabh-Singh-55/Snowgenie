@@ -1,8 +1,7 @@
 # SnowGenie: Natural Language to SQL for Snowflake
 
-�� **SnowGenie** is a modern AI-powered app that lets anyone—technical or not—query a Snowflake database using plain English. Powered by Google's Gemini AI, it requires no SQL skills or schema knowledge. Direct cloud AI integration with local database connection ensures both power and security.
-
----
+<img src="logo.png" alt="SnowGenie Logo" width="20%" align="right">
+🧞 SnowGenie is a modern AI-powered app that lets anyone—technical or not—query a Snowflake database using plain English. Powered by Google's Gemini AI, it requires no SQL skills or schema knowledge. Direct cloud AI integration with local database connection ensures both power and security.
 
 ## ✨ Features
 
@@ -10,8 +9,29 @@
 - **Automatic schema analysis**—no need to know table or column names
 - **Gemini AI-powered SQL generation** and execution
 - **Clear, formatted answers** with reasoning process displayed
-- **Google Gemini integration**: Latest AI models (Gemini 2.0 Flash, 1.5 Pro, etc.)
+- **Google Gemini integration**: Latest AI models (including Gemini 2.5 Flash Preview and Pro models)
 - **Secure**: Credentials stay local, only queries sent to Gemini API
+- **SQL Review System**: 
+  - Review pending SQL queries before execution
+  - Approve/Reject functionality with clear UI
+  - Pretty SQL formatting with collapsible blocks
+  - Audit trail of approved/rejected queries
+- **Enhanced Schema Management**:
+  - Efficient single-connection database access
+  - Sample row caching for each table
+  - Asynchronous schema building
+  - Custom JSON encoding for special data types
+  - Detailed logging and error handling
+- **Advanced Streaming Capabilities**:
+  - Server-Sent Events (SSE) for real-time responses
+  - Structured JSON streaming with progress indicators
+  - Live thought process visualization
+- **Extended Model Support**:
+  - Support for latest Gemini models including:
+    - gemini-2.5-flash-preview models
+    - gemini-2.5-pro-preview
+    - gemini-2.0-flash variants
+    - gemini-1.5-pro and flash models
 
 ---
 

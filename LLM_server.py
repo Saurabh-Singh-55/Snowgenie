@@ -15,7 +15,7 @@ If "stream": true, responses are Server‑Sent Events (SSE) where each `data:`
 chunk already carries pretty‑formatted text (tool calls, function messages,
 chain‑of‑thought, final answer).
 """
-
+from langchain_google_vertexai import ChatVertexAI
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -85,12 +85,21 @@ async def list_models():
     # Return available Gemini models
     gemini_models = [
         "gemini-2.5-flash-preview-05-20",
-        "gemini-2.0-flash",
-        "gemini-2.5-flash-preview-04-17", 
-        "gemini-1.5-pro",
-        "gemini-1.5-flash",
         "gemini-2.5-flash-preview-native-audio-dialog",
+        "gemini-2.5-flash-exp-native-audio-thinking-dialog",
+        "gemini-2.5-flash-preview-tts",
         "gemini-2.5-pro-preview-06-05",
+        "gemini-2.5-pro-preview-tts",
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-preview-image-generation",
+        "gemini-2.0-flash-lite",
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-8b",
+        "gemini-1.5-pro",
+        "gemini-embedding-exp",
+        "imagen-3.0-generate-002",
+        "veo-2.0-generate-001",
+        "gemini-2.0-flash-live-001",
     ]
     return {"models": gemini_models}
 
@@ -211,11 +220,9 @@ def create_agent(mcp_url: str, model_name: str = DEFAULT_LLM_MODEL) -> MCPAgent:
     if not check_gemini_config():
         raise ValueError("Gemini API key not configured")
     
-    llm = ChatGoogleGenerativeAI(
-        model=model_name,
-        google_api_key=GEMINI_API_KEY,
-        temperature=float(GEMINI_TEMPERATURE),
-        max_tokens=int(GEMINI_MAX_TOKENS) if GEMINI_MAX_TOKENS != "None" else None,
+    llm = ChatVertexAI(
+        model_name=model_name,
+        temperature=0
     )
 
     client_cfg = {"mcpServers": {"http": {"url": mcp_url}}}

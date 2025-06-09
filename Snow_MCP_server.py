@@ -2,10 +2,15 @@ import logging
 import json #-NEW-
 import os   #-NEW-
 from contextlib import closing
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from write_detector import SQLWriteDetector
 import snowflake.connector
 from fastmcp import FastMCP
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+import uuid
+import asyncio
+
 
 # ------------------------------------------------------------------#
 # Constants (use env‑vars or a secrets manager in production)         #
@@ -150,7 +155,79 @@ async def describe_table(table_name: str) -> List[Dict[str, Any]]:
     except KeyError:
         return [{"error": f"Table '{table_name}' not found in the SNOWFLAKE DB cached for {SNOWFLAKE_DATABASE}.{SNOWFLAKE_SCHEMA}."}]
 
+approval_app = FastAPI(title="SQL‑Approval Server")
 
+# In‑memory “queue” → { session_id: {query, status, result?} }
+pending_queries: Dict[str, Dict[str, Any]] = {}
+
+# ──────────────────────────────
+#  Pydantic models
+# ──────────────────────────────
+class SQLQueryRequest(BaseModel):
+    query: str
+
+
+class SQLQueryResponse(BaseModel):
+    session_id: str
+    pending_sql: str
+    status: str = "pending"
+
+
+class SQLApprovalRequest(BaseModel):
+    approved: bool
+
+
+class PendingQuery(BaseModel):
+    session_id: str
+    query: str
+    status: str  # "pending" | "approved" | "rejected" | "failed"
+
+
+# ──────────────────────────────
+#  Human‑in‑the‑loop endpoints
+# ──────────────────────────────
+
+@approval_app.get("/pending", response_model=List[PendingQuery])
+async def list_pending():
+    """
+    List everything waiting for a decision
+    (or already decided, if you want a quick audit).
+    """
+    return [
+        PendingQuery(session_id=sid, query=info["query"], status=info["status"])
+        for sid, info in pending_queries.items()
+    ]
+
+
+@approval_app.post("/approve/{session_id}")
+async def approve_query(session_id: str, approval: SQLApprovalRequest):
+    """
+    Human answers “yes” or “no”.
+    On yes → run the query, store the result, mark approved.
+    On no  → mark rejected.
+    """
+    if session_id not in pending_queries:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    qinfo = pending_queries[session_id]
+
+    if not approval.approved:
+        qinfo["status"] = "rejected"
+        return {"status": "rejected"}
+
+    # ——— run query against Snowflake here ———
+    try:
+        result = await db.execute_query(qinfo["query"])  # ← your existing helper
+        qinfo.update(status="approved", result=result)
+        return {"status": "approved", "rows_returned": len(result)}
+    except Exception as exc:
+        qinfo.update(status="failed", error=str(exc))
+        return {"status": "failed", "error": str(exc)}
+
+
+# ──────────────────────────────
+#  MCP tool — read‑only SQL
+# ──────────────────────────────
 @mcp.tool()
 async def read_query(query: str) -> List[Dict[str, Any]]:
     """Query the database with only read operations and should not contain write operations
@@ -164,10 +241,44 @@ async def read_query(query: str) -> List[Dict[str, Any]]:
     Args:
         query: A single read SQL query to execute with the database and schema always written before the table name.
     """
+    # Basic write‑operation guard (your existing helper)
     if SQLWriteDetector().analyze_query(query)["contains_write"]:
-            raise ValueError("Calls to read_query should not contain write operations")
-    return await db.execute_query(query)
+        raise ValueError("read_query only accepts pure SELECT statements.")
+
+    # 1️⃣ Drop into approval queue
+    session_id = str(uuid.uuid4())
+    pending_queries[session_id] = {"query": query, "status": "pending"}
+
+    # 2️⃣ Poll until status changes
+    while pending_queries[session_id]["status"] == "pending":
+        await asyncio.sleep(0.5)
+
+    status = pending_queries[session_id]["status"]
+
+    # 3️⃣ Return according to final state
+    if status == "approved":
+        return pending_queries[session_id]["result"]
+    if status == "rejected":
+        raise RuntimeError("Query was rejected by the reviewer.")
+    raise RuntimeError(f"Query failed during execution: {pending_queries[session_id].get('error')}")
 
 # ------------------  MAIN  ----------------------------------------#
 if __name__ == "__main__":
-    mcp.run(transport="sse", host=MCP_SERVER_HOST, port=MCP_SERVER_PORT, log_level=MCP_LOG_LEVEL)
+    import uvicorn
+    import threading
+    
+    # Start FastMCP server in a thread
+    mcp_thread = threading.Thread(
+        target=mcp.run,
+        kwargs={
+            "transport": "sse",
+            "host": MCP_SERVER_HOST,
+            "port": MCP_SERVER_PORT,
+            "log_level": MCP_LOG_LEVEL
+        }
+    )
+    mcp_thread.daemon = True  # This ensures the thread will exit when the main program does
+    mcp_thread.start()
+    
+    # Start FastAPI approval server in main thread
+    uvicorn.run(approval_app, host=MCP_SERVER_HOST, port=MCP_SERVER_PORT + 1)
